@@ -1,0 +1,25 @@
+# Docker ignore file for SEM Data Generator
+.git
+.gitignore
+README.md
+*.md
+.DS_Store
+.env
+.env.local
+.env.production
+.env.development
+node_modules
+npm-debug.log
+Dockerfile*
+docker-compose*
+.dockerignore
+.replit
+replit.nix
+.upm
+.cache
+*.log
+*.tmp
+R_libs/.cache
+*.Rhistory
+.RData
+.Ruserdata
