@@ -116,21 +116,21 @@ RUN wget https://github.com/jgm/pandoc/releases/download/${RSTUDIO_PANDOC_VERSIO
     rm -rf pandoc-${RSTUDIO_PANDOC_VERSION}*
 
 # Configure R with EVERY possible repository
-RUN echo 'local({
-    r <- getOption("repos")
-    r["CRAN"] <- "https://cloud.r-project.org"
-    r["CRAN2"] <- "https://cran.rstudio.com"
-    r["CRAN3"] <- "https://cran.microsoft.com/snapshot/2024-01-01"
-    r["RForge"] <- "https://r-forge.r-project.org"
-    r["BioCsoft"] <- "https://bioconductor.org/packages/release/bioc"
-    r["BioCann"] <- "https://bioconductor.org/packages/release/data/annotation"
-    r["BioCexp"] <- "https://bioconductor.org/packages/release/data/experiment"
-    r["BioCworkflows"] <- "https://bioconductor.org/packages/release/workflows"
-    options(repos = r)
-    options(Ncpus = parallel::detectCores())
-    options(download.file.method = "curl")
-    options(timeout = 300)
-})' >> /usr/local/lib/R/etc/Rprofile.site
+RUN echo 'local({' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r <- getOption("repos")' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["CRAN"] <- "https://cloud.r-project.org"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["CRAN2"] <- "https://cran.rstudio.com"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["CRAN3"] <- "https://cran.microsoft.com/snapshot/2024-01-01"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["RForge"] <- "https://r-forge.r-project.org"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["BioCsoft"] <- "https://bioconductor.org/packages/release/bioc"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["BioCann"] <- "https://bioconductor.org/packages/release/data/annotation"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["BioCexp"] <- "https://bioconductor.org/packages/release/data/experiment"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    r["BioCworkflows"] <- "https://bioconductor.org/packages/release/workflows"' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    options(repos = r)' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    options(Ncpus = parallel::detectCores())' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    options(download.file.method = "curl")' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '    options(timeout = 300)' >> /usr/local/lib/R/etc/Rprofile.site && \
+    echo '})' >> /usr/local/lib/R/etc/Rprofile.site
 
 WORKDIR /build
 
