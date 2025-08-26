@@ -53,7 +53,7 @@ RUN Rscript -e "install.packages('semTools', Ncpus=parallel::detectCores())"
 
 # Layer 6: semPlot (force from source with verbose output)
 RUN Rscript -e "install.packages('semPlot', type='source', Ncpus=1, dependencies=TRUE, verbose=TRUE)" || \
-    Rscript -e "remotes::install_github('SachaEpskamp/semPlot')" || \
+    Rscript -e "install.packages('remotes'); remotes::install_github('SachaEpskamp/semPlot')" || \
     echo "semPlot installation failed but continuing..."
 
 # Layer 7: Data manipulation
@@ -62,29 +62,8 @@ RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis'), Ncpus=
 # Layer 8: Final heavy package
 RUN Rscript -e "install.packages('Hmisc', Ncpus=parallel::detectCores())"
 
-# RELAXED Verification - semPlot is optional
-RUN Rscript -e "
-critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4')
-optional_packages <- c('semPlot')
-
-for (pkg in critical_packages) { 
-  if (!requireNamespace(pkg, quietly = TRUE)) { 
-    stop(paste('CRITICAL:', pkg, 'package missing')) 
-  } else {
-    cat('✅ CRITICAL:', pkg, 'verified\n')
-  }
-}
-
-for (pkg in optional_packages) {
-  if (requireNamespace(pkg, quietly = TRUE)) {
-    cat('✅ OPTIONAL:', pkg, 'available\n')
-  } else {
-    cat('⚠️  OPTIONAL:', pkg, 'missing (app will work without it)\n')
-  }
-}
-
-cat('✅ Build verification complete\n')
-"
+# FIXED: Single-line verification command
+RUN Rscript -e "critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4'); optional_packages <- c('semPlot'); for (pkg in critical_packages) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'package missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\n') } }; for (pkg in optional_packages) { if (requireNamespace(pkg, quietly = TRUE)) { cat('✅ OPTIONAL:', pkg, 'available\n') } else { cat('⚠️  OPTIONAL:', pkg, 'missing (app will work without it)\n') } }; cat('✅ Build verification complete\n')"
 
 # Stage 2: Final lightweight image
 FROM --platform=linux/amd64 rocker/shiny:4.4.1
