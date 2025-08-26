@@ -10,7 +10,6 @@ if (dir.exists(user_lib)) {
 # Generate the SEM data function with fixes
 generate_sem_data <- function(n = 310, seed = 12345) {
   set.seed(seed)
-  
   cat("Generating SEM data with n =", n, "and seed =", seed, "\n")
   
   # Response bias and data quality parameters
@@ -84,7 +83,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
   
   cat("Generating observed indicators...\n")
   
-  # Function to generate observed indicators with realistic response patterns
+  # FIXED: Function to generate observed indicators with proper fatigue calculation
   generate_indicators <- function(latent_scores, loadings, scale_range, reverse_code = FALSE, 
                                  item_position = 1, scale_name = "unknown") {
     indicators <- matrix(NA, nrow = length(latent_scores), ncol = length(loadings))
@@ -94,16 +93,21 @@ generate_sem_data <- function(n = 310, seed = 12345) {
     has_extreme_response <- runif(n) < extreme_response_prob
     has_midpoint_bias <- runif(n) < midpoint_bias_prob
     
-    # FIXED: Calculate fatigue effect as a single value for this item position
-    # then replicate it for all participants
-    base_fatigue <- pmin(0.4, (mean(item_position) - 1) * fatigue_effect_strength / 50)
-    fatigue_effect <- rep(base_fatigue, length(latent_scores))
-    
     # Social desirability varies by scale
     social_desirability <- ifelse(scale_name %in% c("TAS", "EST"), 
                                  social_desirability_strength, 0.1)
     
     for (i in 1:length(loadings)) {
+      # FIXED: Calculate fatigue effect for each specific item position
+      current_item_pos <- if(length(item_position) == 1) {
+        item_position
+      } else {
+        item_position[i]
+      }
+      
+      # Calculate fatigue as a single value per item
+      base_fatigue <- pmin(0.4, (current_item_pos - 1) * fatigue_effect_strength / 50)
+      
       error_var <- 1 - loadings[i]^2
       
       # Add some cross-loadings for realism
@@ -123,9 +127,9 @@ generate_sem_data <- function(n = 310, seed = 12345) {
       bias_adjusted_score <- bias_adjusted_score + 
                             rnorm(length(bias_adjusted_score), social_desirability, 0.15)
       
-      # FIXED: Survey fatigue (now both vectors have same length)
-      fatigue_noise <- rnorm(length(bias_adjusted_score), 0, fatigue_effect)
-      bias_adjusted_score <- bias_adjusted_score * (1 - fatigue_effect) + fatigue_noise
+      # FIXED: Survey fatigue (now properly vectorized)
+      fatigue_noise <- rnorm(length(bias_adjusted_score), 0, base_fatigue * 0.1)
+      bias_adjusted_score <- bias_adjusted_score * (1 - base_fatigue) + fatigue_noise
       
       # Transform to appropriate scale with heteroscedasticity
       scale_variance <- runif(length(bias_adjusted_score), 0.8, 1.2)
