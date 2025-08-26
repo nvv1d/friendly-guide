@@ -71,13 +71,12 @@ FROM --platform=linux/amd64 rocker/shiny:4.4.1
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Runtime dependencies for graphics
+# FIXED: Runtime dependencies with correct package names
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libcairo2 \
     libxt6 \
     libx11-6 \
-    libgraphviz4 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
