@@ -10,6 +10,13 @@ if (dir.exists(user_lib)) {
 library(shiny)
 library(MASS)
 
+# Load SEM and psychometric packages if available
+psych_available <- requireNamespace("psych", quietly = TRUE)
+lavaan_available <- requireNamespace("lavaan", quietly = TRUE)
+
+if (psych_available) library(psych)
+if (lavaan_available) library(lavaan)
+
 # Enhanced SEM data generation function with customizable parameters
 generate_sem_data_custom <- function(n = 310, seed = 12345, params = list(), loadings = list()) {
   set.seed(seed)
@@ -469,6 +476,38 @@ ui <- fluidPage(
           )
         ),
         
+        tabPanel("📈 Data Validation",
+          br(),
+          h4("Psychometric Analysis & SEM Validation"),
+          conditionalPanel(
+            condition = "output.data_preview",
+            p("Comprehensive analysis of your generated SEM data using psych and lavaan packages:"),
+            
+            fluidRow(
+              column(6,
+                h5("📊 Reliability Analysis"),
+                verbatimTextOutput("reliability_stats"),
+                br(),
+                h5("🔗 Factor Structure"),
+                verbatimTextOutput("factor_analysis")
+              ),
+              column(6,
+                h5("📉 Descriptive Statistics"),
+                tableOutput("descriptive_stats"),
+                br(),
+                h5("🎯 SEM Model Fit"),
+                verbatimTextOutput("sem_fit")
+              )
+            )
+          ),
+          conditionalPanel(
+            condition = "!output.data_preview",
+            div(style = "text-align: center; margin-top: 50px;",
+              h4("Generate data first to see validation results", style = "color: #666;")
+            )
+          )
+        ),
+        
         tabPanel("ℹ️ Help",
           br(),
           h4("How to Use This Customizable SEM Data Generator"),
@@ -610,6 +649,150 @@ server <- function(input, output, session) {
       }
     }
   )
+  
+  # Data Validation Tab Outputs
+  output$reliability_stats <- renderText({
+    if (!is.null(values$generated_data) && psych_available) {
+      tryCatch({
+        data <- values$generated_data
+        
+        # Define scale items
+        tsri_items <- paste0("TSRI_", c(1:14))
+        uwes_items <- paste0("UWES_", c(1:17))
+        est_items <- paste0("EST_", c(1:19))
+        tas_items <- paste0("TAS_", c(1:18))
+        
+        # Calculate reliability for each scale
+        tsri_alpha <- psych::alpha(data[tsri_items], check.keys = TRUE)$total$raw_alpha
+        uwes_alpha <- psych::alpha(data[uwes_items], check.keys = TRUE)$total$raw_alpha
+        est_alpha <- psych::alpha(data[est_items], check.keys = TRUE)$total$raw_alpha
+        tas_alpha <- psych::alpha(data[tas_items], check.keys = TRUE)$total$raw_alpha
+        
+        paste0("RELIABILITY ANALYSIS (Cronbach's Alpha):\n\n",
+               "📚 TSRI-C Scale: α = ", round(tsri_alpha, 3), "\n",
+               "💼 UWES Scale: α = ", round(uwes_alpha, 3), "\n",
+               "❤️ EST Scale: α = ", round(est_alpha, 3), "\n",
+               "🤝 TAS Scale: α = ", round(tas_alpha, 3), "\n\n",
+               "Interpretation:\n",
+               "• α ≥ 0.90: Excellent reliability\n",
+               "• α ≥ 0.80: Good reliability\n",
+               "• α ≥ 0.70: Acceptable reliability\n",
+               "• α < 0.70: Poor reliability")
+      }, error = function(e) {
+        "Error computing reliability statistics. Generate data first."
+      })
+    } else {
+      if (!psych_available) {
+        "psych package not available for reliability analysis."
+      } else {
+        "Generate data to see reliability statistics."
+      }
+    }
+  })
+  
+  output$factor_analysis <- renderText({
+    if (!is.null(values$generated_data) && psych_available) {
+      tryCatch({
+        data <- values$generated_data
+        
+        # Quick factor analysis on a subset
+        subset_data <- data[, c(paste0("TSRI_", 1:5), paste0("UWES_", 1:5), 
+                               paste0("EST_", 1:5), paste0("TAS_", 1:5))]
+        
+        fa_result <- psych::fa(subset_data, nfactors = 4, rotate = "varimax")
+        
+        paste0("EXPLORATORY FACTOR ANALYSIS (4 factors):\n\n",
+               "Factor loadings (first 5 items per scale):\n",
+               "• Proportion of variance explained: ", 
+               round(sum(fa_result$Vaccounted[2,]) * 100, 1), "%\n\n",
+               "• Factor 1 (TSRI): ", round(fa_result$Vaccounted[2,1] * 100, 1), "%\n",
+               "• Factor 2 (UWES): ", round(fa_result$Vaccounted[2,2] * 100, 1), "%\n",
+               "• Factor 3 (EST): ", round(fa_result$Vaccounted[2,3] * 100, 1), "%\n",
+               "• Factor 4 (TAS): ", round(fa_result$Vaccounted[2,4] * 100, 1), "%\n\n",
+               "Chi-square test: χ² = ", round(fa_result$chi, 2), 
+               " (p = ", round(fa_result$PVAL, 4), ")")
+      }, error = function(e) {
+        "Error computing factor analysis. Ensure sufficient data quality."
+      })
+    } else {
+      if (!psych_available) {
+        "psych package not available for factor analysis."
+      } else {
+        "Generate data to see factor analysis results."
+      }
+    }
+  })
+  
+  output$descriptive_stats <- renderTable({
+    if (!is.null(values$generated_data)) {
+      data <- values$generated_data
+      
+      # Calculate descriptive statistics by scale
+      tsri_mean <- mean(rowMeans(data[, paste0("TSRI_", 1:14)], na.rm = TRUE), na.rm = TRUE)
+      uwes_mean <- mean(rowMeans(data[, paste0("UWES_", 1:17)], na.rm = TRUE), na.rm = TRUE)
+      est_mean <- mean(rowMeans(data[, paste0("EST_", 1:19)], na.rm = TRUE), na.rm = TRUE)
+      tas_mean <- mean(rowMeans(data[, paste0("TAS_", 1:18)], na.rm = TRUE), na.rm = TRUE)
+      
+      tsri_sd <- sd(rowMeans(data[, paste0("TSRI_", 1:14)], na.rm = TRUE), na.rm = TRUE)
+      uwes_sd <- sd(rowMeans(data[, paste0("UWES_", 1:17)], na.rm = TRUE), na.rm = TRUE)
+      est_sd <- sd(rowMeans(data[, paste0("EST_", 1:19)], na.rm = TRUE), na.rm = TRUE)
+      tas_sd <- sd(rowMeans(data[, paste0("TAS_", 1:18)], na.rm = TRUE), na.rm = TRUE)
+      
+      data.frame(
+        Scale = c("TSRI-C", "UWES", "EST", "TAS"),
+        Items = c(14, 17, 19, 18),
+        Range = c("1-5", "0-6", "1-4", "1-5"),
+        Mean = round(c(tsri_mean, uwes_mean, est_mean, tas_mean), 2),
+        SD = round(c(tsri_sd, uwes_sd, est_sd, tas_sd), 2),
+        stringsAsFactors = FALSE
+      )
+    } else {
+      data.frame(Message = "Generate data to see descriptive statistics")
+    }
+  })
+  
+  output$sem_fit <- renderText({
+    if (!is.null(values$generated_data) && lavaan_available) {
+      tryCatch({
+        data <- values$generated_data
+        
+        # Define a simple CFA model
+        model <- '
+          # TSRI latent factors
+          satisfaction =~ TSRI_1 + TSRI_3 + TSRI_5 + TSRI_13 + TSRI_14
+          instrumental =~ TSRI_2 + TSRI_6 + TSRI_9 + TSRI_10 + TSRI_12
+          conflict =~ TSRI_4 + TSRI_7 + TSRI_8 + TSRI_11
+          
+          # UWES latent factors  
+          vigor =~ UWES_1 + UWES_4 + UWES_8 + UWES_12 + UWES_15 + UWES_17
+          dedication =~ UWES_2 + UWES_5 + UWES_7 + UWES_10 + UWES_13
+          absorption =~ UWES_3 + UWES_6 + UWES_9 + UWES_11 + UWES_14 + UWES_16
+        '
+        
+        fit <- lavaan::cfa(model, data = data)
+        fit_measures <- lavaan::fitmeasures(fit, c("chisq", "df", "pvalue", "cfi", "tli", "rmsea", "srmr"))
+        
+        paste0("CONFIRMATORY FACTOR ANALYSIS (CFA):\n\n",
+               "Model Fit Indices:\n",
+               "• Chi-square: ", round(fit_measures["chisq"], 2), " (df = ", fit_measures["df"], ")\n",
+               "• p-value: ", round(fit_measures["pvalue"], 4), "\n",
+               "• CFI: ", round(fit_measures["cfi"], 3), " (good fit: ≥ 0.95)\n",
+               "• TLI: ", round(fit_measures["tli"], 3), " (good fit: ≥ 0.95)\n",
+               "• RMSEA: ", round(fit_measures["rmsea"], 3), " (good fit: ≤ 0.06)\n",
+               "• SRMR: ", round(fit_measures["srmr"], 3), " (good fit: ≤ 0.08)\n\n",
+               "Model Status: ", 
+               ifelse(lavaan::lavInspect(fit, "converged"), "✓ Converged", "✗ Not converged"))
+      }, error = function(e) {
+        paste0("SEM Model Error: ", e$message, "\n\nNote: Complex models may require larger sample sizes.")
+      })
+    } else {
+      if (!lavaan_available) {
+        "lavaan package not available for SEM analysis."
+      } else {
+        "Generate data to see SEM model fit statistics."
+      }
+    }
+  })
 }
 
 # Run the application
