@@ -1,18 +1,13 @@
-# Minimal Dockerfile for SEM Data Generator - Optimized with Multi-Stage Build
-# Stage 1: The "Builder" - Installs all dependencies
-# ADDED: --platform flag to ensure the correct architecture is used.
+# Multi-Stage Build: Optimized SEM Data Generator
+# Stage 1: Builder with Posit binaries
 FROM --platform=linux/amd64 rocker/shiny:4.4.1 AS builder
 
-# Set environment variables for non-interactive setup
+# Set environment for non-interactive installs
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies required by R packages
-# These are still needed even with binary packages, as they link against them.
+# Install system dependencies (minimal set)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libnlopt-dev \
     libssl-dev \
-    libharfbuzz-dev \
-    libfribidi-dev \
     libcurl4-openssl-dev \
     libxml2-dev \
     libfontconfig1-dev \
@@ -20,50 +15,85 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libtiff5-dev \
     libjpeg-dev \
-    pkg-config \
-    libgmp-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libnlopt-dev \
     libglpk-dev \
+    libgmp-dev \
+    pkg-config \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and run the robust R package installation script
-# This script is now configured to compile from source to ensure compatibility.
+# Configure R to use Posit Package Manager (precompiled binaries)
+RUN echo 'options(repos=c(CRAN="https://packagemanager.posit.co/cran/latest"))' \
+    >> /usr/local/lib/R/etc/Rprofile.site
+
+# Install packages in staged layers (for Docker caching)
 WORKDIR /app
-COPY install_packages.R .
-RUN Rscript install_packages.R
 
+# Layer 1: Core Shiny and base stats
+RUN Rscript -e "install.packages(c('shiny', 'MASS'), Ncpus=parallel::detectCores())"
 
-# Stage 2: The "Final Image" - Creates the minimal production image
+# Layer 2: Core SEM packages
+RUN Rscript -e "install.packages(c('lavaan', 'psych'), Ncpus=parallel::detectCores())"
+
+# Layer 3: Statistical modeling (these have heavy deps)
+RUN Rscript -e "install.packages(c('nloptr', 'lme4'), Ncpus=parallel::detectCores())"
+
+# Layer 4: Extended SEM tools
+RUN Rscript -e "install.packages(c('semPlot', 'semTools'), Ncpus=parallel::detectCores())"
+
+# Layer 5: Additional modeling packages
+RUN Rscript -e "install.packages(c('arm', 'rockchalk'), Ncpus=parallel::detectCores())"
+
+# Layer 6: Data manipulation and visualization
+RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis'), Ncpus=parallel::detectCores())"
+
+# Layer 7: Final heavy package
+RUN Rscript -e "install.packages('Hmisc', Ncpus=parallel::detectCores())"
+
+# Verification step
+RUN Rscript -e "
+critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4', 'semPlot')
+for (pkg in critical_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste('CRITICAL:', pkg, 'package missing'))
+  }
+}
+cat('✅ All critical packages verified\\n')
+"
+
+# Stage 2: Final lightweight image
 FROM --platform=linux/amd64 rocker/shiny:4.4.1
 
-# Set environment variables
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install minimal runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# --- Optimized Asset Copying ---
-# 1. Copy the pre-compiled R libraries from the "builder" stage.
-# This is the key step that avoids reinstalling everything.
+# Copy precompiled R packages from builder
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
-# 2. Copy the application files
+# Copy application files
 COPY app_customizable.R .
 COPY app_simple.R .
 COPY generate_data.R .
 
-# Create a simple startup script
+# Create startup script
 RUN echo '#!/bin/bash\n\
-echo "Starting SEM Data Generator on port $PORT"\n\
-exec R -e "shiny::runApp('\''app_customizable.R'\'', host='\''0.0.0.0'\'', port=as.numeric(Sys.getenv('\''PORT'\'', 5000)))"' > start.sh && \
+echo "🚀 Starting SEM Data Generator on port $PORT"\n\
+exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
-# Expose the application port
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:$PORT/ || exit 1
+
 EXPOSE 5000
 
-# Health check to ensure the application is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:$PORT/ || exit 1
-
-# Start the application
 CMD ["./start.sh"]
