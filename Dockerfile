@@ -1,4 +1,4 @@
-# NUCLEAR OPTION: Get semPlot working at ALL COSTS
+# Nuclear semPlot Dockerfile for GitHub Actions
 FROM --platform=linux/amd64 rocker/r-ver:4.4.1 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -30,58 +30,44 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2-dev \
     libxt-dev \
     libx11-dev \
-    libgraphviz-dev \
-    libudunits2-dev \
-    libgdal-dev \
-    libgeos-dev \
-    libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure for maximum performance
+# Configure repos
 RUN echo 'options(repos=c(CRAN="https://packagemanager.posit.co/cran/latest"))' \
     >> /usr/local/lib/R/etc/Rprofile.site
 
 WORKDIR /app
 
-# Layer 1: Core R packages
-RUN Rscript -e "install.packages(c('shiny', 'MASS'), Ncpus=parallel::detectCores())"
+# Core packages
+RUN Rscript -e "install.packages(c('shiny', 'MASS', 'lavaan', 'psych', 'nloptr', 'lme4'), Ncpus=parallel::detectCores())"
 
-# Layer 2: SEM essentials  
-RUN Rscript -e "install.packages(c('lavaan', 'psych'), Ncpus=parallel::detectCores())"
+# OpenMx dependencies first
+RUN Rscript -e "install.packages(c('Matrix', 'digest', 'boot', 'lattice', 'nlme', 'survival', 'car', 'pbivnorm', 'BH', 'RcppEigen', 'Rcpp', 'lifecycle'), Ncpus=parallel::detectCores())"
 
-# Layer 3: Statistical modeling base
-RUN Rscript -e "install.packages(c('nloptr', 'lme4'), Ncpus=parallel::detectCores())"
-
-# Layer 4: OpenMx dependencies (THE HEAVY STUFF)
-RUN Rscript -e "install.packages(c('Matrix', 'digest', 'MASS', 'methods', 'parallel', 'stats', 'utils', 'boot', 'lattice', 'nlme', 'survival', 'car', 'pbivnorm', 'snowfall', 'BH', 'RcppEigen', 'Rcpp', 'StanHeaders', 'lifecycle'), Ncpus=parallel::detectCores())"
-
-# Layer 5: FORCE OpenMx installation (the troublemaker)
-RUN Rscript -e "install.packages('OpenMx', Ncpus=1, type='source', configure.args='--enable-openmp')" || \
+# FORCE OpenMx (the troublemaker)
+RUN Rscript -e "install.packages('OpenMx', Ncpus=2, type='source')" || echo "OpenMx failed, trying alternatives..." && \
     Rscript -e "install.packages('OpenMx', repos='http://openmx.ssri.psu.edu/packages/')" || \
-    Rscript -e "remotes::install_github('OpenMx/OpenMx')" || \
-    echo "OpenMx failed but continuing..."
+    echo "OpenMx installation failed but continuing..."
 
-# Layer 6: semPlot dependencies (now that OpenMx might exist)
-RUN Rscript -e "install.packages(c('qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'colorspace', 'corpcor', 'mi', 'Amelia', 'boot', 'foreign', 'huge', 'rockchalk', 'arm', 'abind', 'mnormt', 'pbivnorm', 'sem'), Ncpus=parallel::detectCores(), dependencies=TRUE)"
+# semPlot dependencies
+RUN Rscript -e "install.packages(c('qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'colorspace', 'corpcor', 'mi', 'Amelia', 'foreign', 'huge', 'rockchalk', 'arm', 'abind', 'mnormt', 'pbivnorm', 'sem'), Ncpus=parallel::detectCores())"
 
-# Layer 7: semTools 
+# semTools
 RUN Rscript -e "install.packages('semTools', Ncpus=parallel::detectCores())"
 
-# Layer 8: THE MOMENT OF TRUTH - semPlot installation
-RUN Rscript -e "install.packages('semPlot', Ncpus=1, dependencies=TRUE, type='source')" || \
-    Rscript -e "remotes::install_github('SachaEpskamp/semPlot')" || \
-    echo "semPlot still failed but we tried everything..."
+# THE MOMENT OF TRUTH - semPlot
+RUN Rscript -e "install.packages('semPlot', Ncpus=2, dependencies=TRUE)" || \
+    echo "semPlot failed but app will work without it"
 
-# Layer 9: Other packages
-RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis'), Ncpus=parallel::detectCores())"
-RUN Rscript -e "install.packages('Hmisc', Ncpus=parallel::detectCores())"
+# Other packages
+RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis', 'Hmisc'), Ncpus=parallel::detectCores())"
 
-# BRUTAL verification - check if OpenMx AND semPlot work
+# Verification
 RUN Rscript -e "
-critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4')
+critical <- c('shiny', 'lavaan', 'psych', 'lme4')
 holy_grail <- c('OpenMx', 'semPlot')
 
-for (pkg in critical_packages) { 
+for (pkg in critical) { 
   if (!requireNamespace(pkg, quietly = TRUE)) { 
     stop(paste('CRITICAL:', pkg, 'missing')) 
   } else {
@@ -91,33 +77,26 @@ for (pkg in critical_packages) {
 
 for (pkg in holy_grail) {
   if (requireNamespace(pkg, quietly = TRUE)) {
-    cat('🏆 HOLY GRAIL:', pkg, 'FINALLY WORKS!\n')
+    cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\n')
   } else {
-    cat('💀 STILL FAILED:', pkg, 'refuses to install\n')
+    cat('💔 FAILED:', pkg, 'missing\n')
   }
 }
-
-cat('🎯 Nuclear installation attempt complete\n')
 "
 
-# Stage 2: Runtime image
+# Runtime image
 FROM --platform=linux/amd64 rocker/shiny:4.4.1
 
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Runtime dependencies (keep it minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libblas3 \
-    liblapack3 \
-    libopenblas-base \
-    libgfortran5 \
+    curl libblas3 liblapack3 libopenblas-base libgfortran5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the nuclear arsenal
+# Copy the arsenal
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
 # Copy app files
@@ -127,7 +106,7 @@ COPY generate_data.R .
 
 # Startup script
 RUN echo '#!/bin/bash\n\
-echo "🚀 Starting SEM Data Generator with NUCLEAR SEMPLOT on port $PORT"\n\
+echo "🚀 Starting SEM Data Generator with GitHub Actions Magic!"\n\
 exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
