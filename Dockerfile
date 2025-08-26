@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Install additional R packages directly
-RUN R -e "install.packages(c('MASS', 'DT', 'ggplot2'), repos='https://cran.rstudio.com/')"
+RUN R -e "install.packages(c('lavaan', 'psych', 'MASS', 'DT', 'ggplot2', 'semPlot'), repos='https://cran.rstudio.com/')"
 
 # Copy application files
 COPY app_customizable.R .
