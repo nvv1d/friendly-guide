@@ -1,14 +1,13 @@
 # Install required packages for SEM Data Generator Shiny App
-# Optimized version using RStudio Public Package Manager for pre-compiled binaries
+# Optimized version that compiles from source to ensure cross-platform compatibility.
 
 cat("Starting R package installation...\n")
 cat("R version:", R.version.string, "\n")
 
-# --- Use RStudio Public Package Manager for Faster Binary Installs ---
-# This repository provides pre-compiled packages for Ubuntu 22.04 (Jammy),
-# which matches the rocker/shiny:4.4.1 base image. This is much faster
-# than compiling from source from the default CRAN mirror.
-options(repos = c(CRAN = "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"))
+# --- Use Standard CRAN Mirror to Compile from Source ---
+# This ensures that packages are built for the Docker container's architecture,
+# avoiding binary compatibility issues when building on ARM-based machines.
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
 
 # --- Consolidated Package List ---
 # Essential packages for core functionality, including dependencies that caused prior build failures.
@@ -47,11 +46,10 @@ install_with_retry <- function(packages, max_retries = 3) {
     cat("Installing package:", pkg, "\n")
     for (retry in 1:max_retries) {
       tryCatch({
-        # Specify type="binary" to ensure we get the pre-compiled version
+        # Install from source
         install.packages(pkg,
                          dependencies = TRUE,
-                         Ncpus = 1,
-                         type = "binary") 
+                         Ncpus = 1) 
         cat("Successfully installed:", pkg, "\n")
         break # Success, exit retry loop
       }, error = function(e) {
