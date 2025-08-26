@@ -1,9 +1,9 @@
-# Nuclear semPlot Dockerfile for GitHub Actions - FIXED
+# Nuclear semPlot Dockerfile for GitHub Actions - Ubuntu 24.04 Fixed
 FROM --platform=linux/amd64 rocker/r-ver:4.5.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# MASSIVE system dependencies for OpenMx/semPlot
+# MASSIVE system dependencies for OpenMx/semPlot - Ubuntu 24.04 package names
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gfortran \
@@ -44,7 +44,7 @@ RUN Rscript -e "install.packages(c('shiny', 'MASS', 'lavaan', 'psych', 'nloptr',
 # OpenMx dependencies first
 RUN Rscript -e "install.packages(c('Matrix', 'digest', 'boot', 'lattice', 'nlme', 'survival', 'car', 'pbivnorm', 'BH', 'RcppEigen', 'Rcpp', 'lifecycle'), Ncpus=parallel::detectCores())"
 
-# FORCE OpenMx (the troublemaker)
+# FORCE OpenMx (now should work with R 4.5.0!)
 RUN Rscript -e "install.packages('OpenMx', Ncpus=2, type='source')" || echo "OpenMx failed, trying alternatives..." && \
     Rscript -e "install.packages('OpenMx', repos='http://openmx.ssri.psu.edu/packages/')" || \
     echo "OpenMx installation failed but continuing..."
@@ -55,24 +55,29 @@ RUN Rscript -e "install.packages(c('qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'c
 # semTools
 RUN Rscript -e "install.packages('semTools', Ncpus=parallel::detectCores())"
 
-# THE MOMENT OF TRUTH - semPlot
+# THE MOMENT OF TRUTH - semPlot (should work now!)
 RUN Rscript -e "install.packages('semPlot', Ncpus=2, dependencies=TRUE)" || \
     echo "semPlot failed but app will work without it"
 
 # Other packages
 RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis', 'Hmisc'), Ncpus=parallel::detectCores())"
 
-# FIXED: Single-line verification command
+# Verification
 RUN Rscript -e "critical <- c('shiny', 'lavaan', 'psych', 'lme4'); holy_grail <- c('OpenMx', 'semPlot'); for (pkg in critical) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\n') } }; for (pkg in holy_grail) { if (requireNamespace(pkg, quietly = TRUE)) { cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\n') } else { cat('💔 FAILED:', pkg, 'missing\n') } }; cat('🎯 Verification complete\n')"
 
-# Runtime image
+# Runtime image - FIXED package names for Ubuntu 24.04
 FROM --platform=linux/amd64 rocker/shiny:4.5.0
 
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
 
+# CORRECTED: Ubuntu 24.04 package names
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl libblas3 liblapack3 libopenblas-base libgfortran5 \
+    curl \
+    libblas3 \
+    liblapack3 \
+    libopenblas0 \
+    libgfortran5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -87,7 +92,7 @@ COPY generate_data.R .
 
 # Startup script
 RUN echo '#!/bin/bash\n\
-echo "🚀 Starting SEM Data Generator with GitHub Actions Magic!"\n\
+echo "🚀 Starting SEM Data Generator with R 4.5.0 + semPlot attempt!"\n\
 exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
