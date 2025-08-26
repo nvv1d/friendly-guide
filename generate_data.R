@@ -83,7 +83,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
   
   cat("Generating observed indicators...\n")
   
-  # FIXED: Function to generate observed indicators with proper fatigue calculation
+  # COMPLETELY FIXED: Function to generate observed indicators
   generate_indicators <- function(latent_scores, loadings, scale_range, reverse_code = FALSE, 
                                  item_position = 1, scale_name = "unknown") {
     indicators <- matrix(NA, nrow = length(latent_scores), ncol = length(loadings))
@@ -105,7 +105,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
         item_position[i]
       }
       
-      # Calculate fatigue as a single value per item
+      # Calculate fatigue as a single scalar value per item
       base_fatigue <- pmin(0.4, (current_item_pos - 1) * fatigue_effect_strength / 50)
       
       error_var <- 1 - loadings[i]^2
@@ -127,7 +127,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
       bias_adjusted_score <- bias_adjusted_score + 
                             rnorm(length(bias_adjusted_score), social_desirability, 0.15)
       
-      # FIXED: Survey fatigue (now properly vectorized)
+      # COMPLETELY FIXED: Survey fatigue - now uses base_fatigue (scalar) throughout
       fatigue_noise <- rnorm(length(bias_adjusted_score), 0, base_fatigue * 0.1)
       bias_adjusted_score <- bias_adjusted_score * (1 - base_fatigue) + fatigue_noise
       
