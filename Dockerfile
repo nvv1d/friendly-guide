@@ -1,6 +1,7 @@
 # Minimal Dockerfile for SEM Data Generator - Optimized with Multi-Stage Build
 # Stage 1: The "Builder" - Installs all dependencies
-FROM rocker/shiny:4.4.1 AS builder
+# ADDED: --platform flag to ensure the correct architecture is used.
+FROM --platform=linux/amd64 rocker/shiny:4.4.1 AS builder
 
 # Set environment variables for non-interactive setup
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,14 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and run the robust R package installation script
-# This script is configured to use RStudio's binary package manager for much faster builds.
+# This script is now configured to compile from source to ensure compatibility.
 WORKDIR /app
 COPY install_packages.R .
 RUN Rscript install_packages.R
 
 
 # Stage 2: The "Final Image" - Creates the minimal production image
-FROM rocker/shiny:4.4.1
+FROM --platform=linux/amd64 rocker/shiny:4.4.1
 
 # Set environment variables
 ENV PORT=5000
