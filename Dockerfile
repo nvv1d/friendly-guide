@@ -1,5 +1,5 @@
 # Nuclear semPlot Dockerfile for GitHub Actions - FIXED
-FROM --platform=linux/amd64 rocker/r-ver:4.4.1 AS builder
+FROM --platform=linux/amd64 rocker/r-ver:4.5.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -66,7 +66,7 @@ RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis', 'Hmisc'
 RUN Rscript -e "critical <- c('shiny', 'lavaan', 'psych', 'lme4'); holy_grail <- c('OpenMx', 'semPlot'); for (pkg in critical) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\n') } }; for (pkg in holy_grail) { if (requireNamespace(pkg, quietly = TRUE)) { cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\n') } else { cat('💔 FAILED:', pkg, 'missing\n') } }; cat('🎯 Verification complete\n')"
 
 # Runtime image
-FROM --platform=linux/amd64 rocker/shiny:4.4.1
+FROM --platform=linux/amd64 rocker/shiny:4.5.0
 
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
