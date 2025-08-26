@@ -1,87 +1,96 @@
 # Install required packages for SEM Data Generator Shiny App
-# Fixed version for Docker deployment
+# Consolidated version with robust installation and complete dependencies
 
 cat("Starting R package installation...\n")
 cat("R version:", R.version.string, "\n")
-cat("Library paths:", .libPaths(), "\n")
 
 # Set CRAN mirror
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
 
-# Essential packages for SEM Data Generator
+# --- Consolidated Package List ---
+# Essential packages for core functionality, including dependencies that caused prior build failures.
+# The order is important here to resolve dependencies correctly (nloptr -> lme4 -> arm/rockchalk).
 essential_packages <- c(
   "shiny",
-  "lavaan",  # Critical for SEM functionality
-  "psych",   # Factor analysis, reliability, correlations
-  "MASS"
+  "lavaan",      # Critical for SEM functionality
+  "psych",       # Factor analysis, reliability, correlations
+  "MASS",
+  "nloptr",      # Dependency for lme4
+  "lme4"         # Dependency for arm and rockchalk
 )
 
-# Optional packages for enhanced features
+# Optional packages for enhanced features and UI improvements.
 optional_packages <- c(
   "DT",
   "ggplot2",
-  "semPlot",   # For SEM plotting
-  "semTools"   # Additional SEM utilities
+  "semPlot",     # For SEM plotting
+  "semTools",    # Additional SEM utilities
+  "arm",         # Depends on lme4
+  "rockchalk",   # Depends on lme4
+  "tibble",
+  "viridis",
+  "Hmisc"
 )
 
-# Function to install packages with error handling
+# --- Robust Installation Function ---
+# Function to install packages with error handling and retries.
 install_with_retry <- function(packages, max_retries = 3) {
   for (pkg in packages) {
-    cat("Installing package:", pkg, "\n")
+    if (requireNamespace(pkg, quietly = TRUE)) {
+      cat("Package already available:", pkg, "\n")
+      next
+    }
     
+    cat("Installing package:", pkg, "\n")
     for (retry in 1:max_retries) {
       tryCatch({
-        if (!requireNamespace(pkg, quietly = TRUE)) {
-          install.packages(pkg, 
-                          repos = "https://cran.rstudio.com/",
-                          dependencies = TRUE,
-                          Ncpus = 1)  # Single core to avoid issues
-          cat("Successfully installed:", pkg, "\n")
-        } else {
-          cat("Package already available:", pkg, "\n")
-        }
-        break  # Success, exit retry loop
+        install.packages(pkg,
+                         repos = "https://cran.rstudio.com/",
+                         dependencies = TRUE,
+                         Ncpus = 1) # Use a single core to avoid potential conflicts in some environments
+        cat("Successfully installed:", pkg, "\n")
+        break # Success, exit retry loop
       }, error = function(e) {
         cat("Attempt", retry, "failed for package", pkg, ":", e$message, "\n")
         if (retry == max_retries) {
           cat("Failed to install", pkg, "after", max_retries, "attempts\n")
         } else {
-          Sys.sleep(2)  # Wait before retry
+          Sys.sleep(2) # Wait before retrying
         }
       })
     }
   }
 }
 
+# --- Installation and Verification ---
 # Install essential packages first
-cat("Installing essential packages...\n")
+cat("\n--- Installing essential packages ---\n")
 install_with_retry(essential_packages)
 
 # Install optional packages
-cat("Installing optional packages...\n")
+cat("\n--- Installing optional packages ---\n")
 install_with_retry(optional_packages)
 
-# Verify installations
-cat("\nVerifying package installations:\n")
+# Verify all installations
+cat("\n--- Verifying package installations ---\n")
 all_packages <- c(essential_packages, optional_packages)
 success_count <- 0
 
 for (pkg in all_packages) {
-  tryCatch({
-    library(pkg, character.only = TRUE, quietly = TRUE)
+  if (requireNamespace(pkg, quietly = TRUE)) {
     cat("✓ Successfully loaded:", pkg, "\n")
     success_count <- success_count + 1
-  }, error = function(e) {
-    cat("✗ Failed to load:", pkg, "-", e$message, "\n")
-  })
+  } else {
+    cat("✗ Failed to load:", pkg, "\n")
+  }
 }
 
-cat("\nInstallation Summary:\n")
+cat("\n--- Installation Summary ---\n")
 cat("Successfully loaded", success_count, "out of", length(all_packages), "packages\n")
 
-# Critical check for essential SEM packages
-critical_packages <- c("shiny", "lavaan", "psych")
-for (pkg in critical_packages) {
+# Critical check for essential packages
+critical_packages_check <- c("shiny", "lavaan", "psych", "lme4")
+for (pkg in critical_packages_check) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop(paste("CRITICAL:", pkg, "package is not available. Deployment will fail."))
   } else {
@@ -89,4 +98,4 @@ for (pkg in critical_packages) {
   }
 }
 
-cat("Package installation complete!\n")
+cat("\nPackage installation complete!\n")
