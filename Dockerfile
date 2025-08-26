@@ -6,8 +6,8 @@ FROM rocker/shiny:4.4.1 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies required by R packages
-# PROACTIVELY ADDED: Common libraries for networking, XML, and fonts to prevent future errors.
-RUN apt-get update && apt-get install -y \
+# ADDED: Image processing libraries (png, tiff, jpeg) to fix latest build errors.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libnlopt-dev \
     libssl-dev \
     libharfbuzz-dev \
@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libfontconfig1-dev \
     libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
