@@ -8,16 +8,20 @@ cat("Library paths:", .libPaths(), "\n")
 # Set CRAN mirror
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
 
-# Essential packages only for faster installation
+# Essential packages for SEM Data Generator
 essential_packages <- c(
   "shiny",
+  "lavaan",  # Critical for SEM functionality
+  "psych",   # Factor analysis, reliability, correlations
   "MASS"
 )
 
 # Optional packages for enhanced features
 optional_packages <- c(
   "DT",
-  "ggplot2"
+  "ggplot2",
+  "semPlot",   # For SEM plotting
+  "semTools"   # Additional SEM utilities
 )
 
 # Function to install packages with error handling
@@ -75,11 +79,14 @@ for (pkg in all_packages) {
 cat("\nInstallation Summary:\n")
 cat("Successfully loaded", success_count, "out of", length(all_packages), "packages\n")
 
-# Critical check for shiny
-if (!requireNamespace("shiny", quietly = TRUE)) {
-  stop("CRITICAL: Shiny package is not available. Deployment will fail.")
-} else {
-  cat("✓ CRITICAL: Shiny package is available and ready\n")
+# Critical check for essential SEM packages
+critical_packages <- c("shiny", "lavaan")
+for (pkg in critical_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(paste("CRITICAL:", pkg, "package is not available. Deployment will fail."))
+  } else {
+    cat("✓ CRITICAL:", pkg, "package is available and ready\n")
+  }
 }
 
 cat("Package installation complete!\n")
