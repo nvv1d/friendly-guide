@@ -80,7 +80,7 @@ cat("\nInstallation Summary:\n")
 cat("Successfully loaded", success_count, "out of", length(all_packages), "packages\n")
 
 # Critical check for essential SEM packages
-critical_packages <- c("shiny", "lavaan")
+critical_packages <- c("shiny", "lavaan", "psych")
 for (pkg in critical_packages) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop(paste("CRITICAL:", pkg, "package is not available. Deployment will fail."))
