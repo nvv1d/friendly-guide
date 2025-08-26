@@ -52,16 +52,8 @@ RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis'), Ncpus=
 # Layer 7: Final heavy package
 RUN Rscript -e "install.packages('Hmisc', Ncpus=parallel::detectCores())"
 
-# Verification step
-RUN Rscript -e "
-critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4', 'semPlot')
-for (pkg in critical_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    stop(paste('CRITICAL:', pkg, 'package missing'))
-  }
-}
-cat('✅ All critical packages verified\\n')
-"
+# Verification step - FIXED: Single line command
+RUN Rscript -e "critical_packages <- c('shiny', 'lavaan', 'psych', 'lme4', 'semPlot'); for (pkg in critical_packages) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'package missing')) } }; cat('✅ All critical packages verified\n')"
 
 # Stage 2: Final lightweight image
 FROM --platform=linux/amd64 rocker/shiny:4.4.1
