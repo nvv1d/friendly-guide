@@ -6,7 +6,7 @@ FROM rocker/shiny:4.4.1 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies required by R packages
-# ADDED: Image processing libraries (png, tiff, jpeg) to fix latest build errors.
+# These are still needed even with binary packages, as they link against them.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libnlopt-dev \
     libssl-dev \
@@ -19,11 +19,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libtiff5-dev \
     libjpeg-dev \
+    pkg-config \
+    libgmp-dev \
+    libglpk-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and run the robust R package installation script
-# This creates a layer with all the compiled R libraries.
+# This script is configured to use RStudio's binary package manager for much faster builds.
 WORKDIR /app
 COPY install_packages.R .
 RUN Rscript install_packages.R
