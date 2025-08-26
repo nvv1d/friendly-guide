@@ -1,4 +1,4 @@
-# Simple SEM Data Generator - Command Line Version
+# Fixed SEM Data Generator - Command Line Version
 # Generates realistic SEM data and saves as CSV
 
 # Set up library path
@@ -7,7 +7,7 @@ if (dir.exists(user_lib)) {
   .libPaths(c(user_lib, .libPaths()))
 }
 
-# Generate the SEM data function from the original script
+# Generate the SEM data function with fixes
 generate_sem_data <- function(n = 310, seed = 12345) {
   set.seed(seed)
   
@@ -94,8 +94,10 @@ generate_sem_data <- function(n = 310, seed = 12345) {
     has_extreme_response <- runif(n) < extreme_response_prob
     has_midpoint_bias <- runif(n) < midpoint_bias_prob
     
-    # Survey fatigue increases with item position
-    fatigue_effect <- pmin(0.4, (item_position - 1) * fatigue_effect_strength / 50)
+    # FIXED: Calculate fatigue effect as a single value for this item position
+    # then replicate it for all participants
+    base_fatigue <- pmin(0.4, (mean(item_position) - 1) * fatigue_effect_strength / 50)
+    fatigue_effect <- rep(base_fatigue, length(latent_scores))
     
     # Social desirability varies by scale
     social_desirability <- ifelse(scale_name %in% c("TAS", "EST"), 
@@ -121,7 +123,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
       bias_adjusted_score <- bias_adjusted_score + 
                             rnorm(length(bias_adjusted_score), social_desirability, 0.15)
       
-      # Survey fatigue (reduces variance and shifts toward midpoint)
+      # FIXED: Survey fatigue (now both vectors have same length)
       fatigue_noise <- rnorm(length(bias_adjusted_score), 0, fatigue_effect)
       bias_adjusted_score <- bias_adjusted_score * (1 - fatigue_effect) + fatigue_noise
       
@@ -261,7 +263,7 @@ generate_sem_data <- function(n = 310, seed = 12345) {
 }
 
 # Generate data and save to CSV
-cat("=== SEM Data Generator ===\n\n")
+cat("=== Fixed SEM Data Generator ===\n\n")
 data <- generate_sem_data(n = 310, seed = 12345)
 
 # Check data structure and statistics
@@ -289,5 +291,24 @@ cat("Data saved to:", output_file, "\n")
 # Display first few rows
 cat("\nFirst 10 rows of the generated data:\n")
 print(head(data, 10))
+
+# Display summary statistics
+cat("\nSummary statistics by scale:\n")
+
+# TSRI items (should be 1-5)
+tsri_items <- grep("^TSRI_", names(data), value = TRUE)
+cat("TSRI items range:", min(data[tsri_items], na.rm = TRUE), "to", max(data[tsri_items], na.rm = TRUE), "\n")
+
+# UWES items (should be 0-6) 
+uwes_items <- grep("^UWES_", names(data), value = TRUE)
+cat("UWES items range:", min(data[uwes_items], na.rm = TRUE), "to", max(data[uwes_items], na.rm = TRUE), "\n")
+
+# EST items (should be 1-4)
+est_items <- grep("^EST_", names(data), value = TRUE)
+cat("EST items range:", min(data[est_items], na.rm = TRUE), "to", max(data[est_items], na.rm = TRUE), "\n")
+
+# TAS items (should be 1-5)
+tas_items <- grep("^TAS_", names(data), value = TRUE)
+cat("TAS items range:", min(data[tas_items], na.rm = TRUE), "to", max(data[tas_items], na.rm = TRUE), "\n")
 
 cat("\nData generation complete!\n")
