@@ -92,11 +92,12 @@ COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
 COPY app_customizable.R .
 COPY app_simple.R .
+COPY app_advanced.R .
 COPY generate_data.R .
 
 RUN echo '#!/bin/bash\n\
-echo "🚀 Starting SEM Data Generator with R 4.5.0 + semPlot attempt!"\n\
-exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
+echo "🚀 Starting Advanced SEM Data Generator with R 4.5.0 + comprehensive SEM analysis!"\n\
+exec R -e "shiny::runApp(\"app_advanced.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
