@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2-dev \
     libxt-dev \
     libx11-dev \
+    libboost-all-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure repos
@@ -44,26 +45,32 @@ RUN Rscript -e "install.packages(c('shiny', 'MASS', 'lavaan', 'psych', 'nloptr',
 # OpenMx dependencies first
 RUN Rscript -e "install.packages(c('Matrix', 'digest', 'boot', 'lattice', 'nlme', 'survival', 'car', 'pbivnorm', 'BH', 'RcppEigen', 'Rcpp', 'lifecycle'), Ncpus=parallel::detectCores())"
 
-# FORCE OpenMx (now should work with R 4.5.0!)
+# FORCE OpenMx
 RUN Rscript -e "install.packages('OpenMx', Ncpus=2, type='source')" || echo "OpenMx failed, trying alternatives..." && \
     Rscript -e "install.packages('OpenMx', repos='http://openmx.ssri.psu.edu/packages/')" || \
     echo "OpenMx installation failed but continuing..."
 
-# semPlot dependencies
+# semPlot dependencies from CRAN
 RUN Rscript -e "install.packages(c('qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'colorspace', 'corpcor', 'mi', 'Amelia', 'foreign', 'huge', 'rockchalk', 'arm', 'abind', 'mnormt', 'pbivnorm', 'sem'), Ncpus=parallel::detectCores())"
 
 # semTools
 RUN Rscript -e "install.packages('semTools', Ncpus=parallel::detectCores())"
 
-# THE MOMENT OF TRUTH - semPlot (should work now!)
-RUN Rscript -e "install.packages('semPlot', Ncpus=2, dependencies=TRUE)" || \
-    echo "semPlot failed but app will work without it"
+# Bioconductor stack for semPlot
+RUN Rscript -e "install.packages('BiocManager', Ncpus=parallel::detectCores())"
+RUN Rscript -e "BiocManager::install(c('graph','RBGL'), ask=FALSE, update=FALSE)"
+
+# semPlot install with multiple fallbacks + source reporting
+RUN Rscript -e "install.packages('remotes', Ncpus=parallel::detectCores())" && \
+    (Rscript -e "tryCatch({install.packages('semPlot', Ncpus=2); cat('🏆 semPlot installed from CRAN\\n')}, error=function(e) stop('CRAN failed'))" \
+     || Rscript -e "tryCatch({remotes::install_github('SachaEpskamp/semPlot'); cat('🏆 semPlot installed from GitHub\\n')}, error=function(e) stop('GitHub failed'))" \
+     || Rscript -e "tryCatch({install.packages('semPlot', repos='http://R-Forge.R-project.org'); cat('🏆 semPlot installed from R-Forge\\n')}, error=function(e) cat('💔 semPlot failed everywhere but continuing...\\n'))")
 
 # Other packages
 RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis', 'Hmisc'), Ncpus=parallel::detectCores())"
 
 # Verification
-RUN Rscript -e "critical <- c('shiny', 'lavaan', 'psych', 'lme4'); holy_grail <- c('OpenMx', 'semPlot'); for (pkg in critical) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\n') } }; for (pkg in holy_grail) { if (requireNamespace(pkg, quietly = TRUE)) { cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\n') } else { cat('💔 FAILED:', pkg, 'missing\n') } }; cat('🎯 Verification complete\n')"
+RUN Rscript -e "critical <- c('shiny', 'lavaan', 'psych', 'lme4'); holy_grail <- c('OpenMx', 'semPlot'); for (pkg in critical) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\\n') } }; for (pkg in holy_grail) { if (requireNamespace(pkg, quietly = TRUE)) { cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\\n') } else { cat('💔 FAILED:', pkg, 'missing\\n') } }; cat('🎯 Verification complete\\n')"
 
 # Runtime image - FIXED package names for Ubuntu 24.04
 FROM --platform=linux/amd64 rocker/shiny:4.5.0
@@ -71,7 +78,6 @@ FROM --platform=linux/amd64 rocker/shiny:4.5.0
 ENV PORT=5000
 ENV DEBIAN_FRONTEND=noninteractive
 
-# CORRECTED: Ubuntu 24.04 package names
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libblas3 \
@@ -82,15 +88,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy the arsenal
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
-# Copy app files
 COPY app_customizable.R .
 COPY app_simple.R .
 COPY generate_data.R .
 
-# Startup script
 RUN echo '#!/bin/bash\n\
 echo "🚀 Starting SEM Data Generator with R 4.5.0 + semPlot attempt!"\n\
 exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
