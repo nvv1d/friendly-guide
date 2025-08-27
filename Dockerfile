@@ -102,7 +102,7 @@ COPY generate_data.R .
 
 RUN echo '#!/bin/bash\n\
 echo "🚀 Starting Advanced SEM Data Generator with R 4.5.0 + comprehensive SEM analysis!"\n\
-exec R -e "shiny::runApp(\"app_advanced.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
+exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
