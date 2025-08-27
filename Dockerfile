@@ -1,320 +1,103 @@
-# NUCLEAR SEMPLOT DOCKERFILE - ABSOLUTELY NO COMPROMISES - FIXED
-FROM --platform=linux/amd64 ubuntu:22.04 AS builder
+# Nuclear semPlot Dockerfile for GitHub Actions - Ubuntu 24.04 Fixed
+FROM --platform=linux/amd64 rocker/r-ver:4.5.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV R_VERSION=4.4.1
-ENV RSTUDIO_PANDOC_VERSION=3.1.1
 
-# COMPLETE SYSTEM ARSENAL - Every possible dependency
+# MASSIVE system dependencies for OpenMx/semPlot - Ubuntu 24.04 package names
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build essentials
     build-essential \
     gfortran \
-    gcc \
-    g++ \
-    make \
-    cmake \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    # R compilation dependencies  
     libblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
-    libopenblas-dev \
-    libarpack2-dev \
-    # SSL/TLS and networking
     libssl-dev \
     libcurl4-openssl-dev \
-    libssh2-1-dev \
-    # XML and web
     libxml2-dev \
-    libxslt1-dev \
-    # Graphics and fonts - EVERYTHING
-    libcairo2-dev \
-    libpango1.0-dev \
-    libpangocairo-1.0-0 \
     libfontconfig1-dev \
     libfreetype6-dev \
-    libfribidi-dev \
-    libharfbuzz-dev \
-    libjpeg-dev \
     libpng-dev \
     libtiff5-dev \
-    libgif-dev \
-    librsvg2-dev \
-    libwebp-dev \
-    # X11 and display
-    libx11-dev \
-    libxt-dev \
-    libxext-dev \
-    libxrender-dev \
-    libxmu-dev \
-    libxpm-dev \
-    # Mathematical libraries
+    libjpeg-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
     libnlopt-dev \
     libglpk-dev \
     libgmp-dev \
-    libmpfr-dev \
-    libgsl-dev \
-    libfftw3-dev \
-    # Database support
-    libsqlite3-dev \
-    libpq-dev \
-    libmysqlclient-dev \
-    unixodbc-dev \
-    # Compression
-    libbz2-dev \
-    liblzma-dev \
-    libzstd-dev \
-    zlib1g-dev \
-    # Additional tools
-    wget \
+    pkg-config \
     curl \
-    git \
-    ca-certificates \
-    locales \
-    software-properties-common \
-    dirmngr \
-    gpg-agent \
+    cmake \
+    libopenblas-dev \
+    libatlas-base-dev \
+    libcairo2-dev \
+    libxt-dev \
+    libx11-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup locale
-RUN locale-gen en_US.UTF-8
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-
-# Install R from source with all optimizations
-WORKDIR /tmp
-RUN wget https://cran.r-project.org/src/base/R-4/R-${R_VERSION}.tar.gz && \
-    tar xzf R-${R_VERSION}.tar.gz && \
-    cd R-${R_VERSION} && \
-    ./configure \
-        --enable-R-shlib \
-        --enable-memory-profiling \
-        --with-blas="-lopenblas" \
-        --with-lapack \
-        --with-cairo \
-        --with-libpng \
-        --with-jpeglib \
-        --with-libtiff \
-        --with-ICU \
-        --with-tcltk \
-        --enable-BLAS-shlib \
-        --with-recommended-packages=yes && \
-    make -j$(nproc) && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/R-${R_VERSION}*
-
-# Install Pandoc
-RUN wget https://github.com/jgm/pandoc/releases/download/${RSTUDIO_PANDOC_VERSION}/pandoc-${RSTUDIO_PANDOC_VERSION}-linux-amd64.tar.gz && \
-    tar xzf pandoc-${RSTUDIO_PANDOC_VERSION}-linux-amd64.tar.gz && \
-    cp pandoc-${RSTUDIO_PANDOC_VERSION}/bin/* /usr/local/bin/ && \
-    rm -rf pandoc-${RSTUDIO_PANDOC_VERSION}*
-
-# Configure R with EVERY possible repository
-RUN echo 'local({' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    r <- getOption("repos")' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    r["CRAN"] <- "https://cloud.r-project.org"' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    r["CRAN2"] <- "https://cran.rstudio.com"' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    r["CRAN3"] <- "https://cran.microsoft.com/snapshot/2024-01-01"' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    r["RForge"] <- "https://r-forge.r-project.org"' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    options(repos = r)' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    options(Ncpus = parallel::detectCores())' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    options(download.file.method = "curl")' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '    options(timeout = 300)' >> /usr/local/lib/R/etc/Rprofile.site && \
-    echo '})' >> /usr/local/lib/R/etc/Rprofile.site
-
-WORKDIR /build
-
-# Update all tools first
-RUN R -e "update.packages(ask=FALSE, checkBuilt=TRUE)"
-
-# PHASE 1: Core development tools
-RUN R -e "install.packages(c('devtools', 'remotes', 'pak'), dependencies=TRUE)"
-
-# PHASE 2: Mathematical foundation - EVERYTHING
-RUN R -e "pak::pak(c('MASS', 'Matrix', 'lattice', 'nlme', 'mgcv', 'boot', 'class', 'cluster', 'codetools', 'foreign', 'KernSmooth', 'rpart', 'spatial', 'survival', 'nnet', 'tools', 'utils'), dependencies=TRUE)"
-
-# PHASE 3: Linear algebra and optimization
-RUN R -e "pak::pak(c('numDeriv', 'nloptr', 'optimx', 'minqa', 'lme4', 'RcppEigen', 'Rcpp', 'RcppArmadillo', 'BH', 'StanHeaders'), dependencies=TRUE)"
-
-# PHASE 4: Statistical modeling essentials
-RUN R -e "pak::pak(c('car', 'mvtnorm', 'mnormt', 'pbivnorm', 'lavaan', 'psych', 'sem', 'semTools', 'polycor'), dependencies=TRUE)"
-
-# PHASE 5: Graphics and visualization infrastructure
-RUN R -e "pak::pak(c('grDevices', 'grid', 'graphics', 'ggplot2', 'gridExtra', 'RColorBrewer', 'colorspace', 'viridis', 'scales'), dependencies=TRUE)"
-
-# PHASE 6: Network and graph theory
-RUN R -e "pak::pak(c('igraph', 'network', 'sna', 'statnet.common', 'ergm', 'intergraph', 'networkDynamic'), dependencies=TRUE)"
-
-# PHASE 7: Data manipulation
-RUN R -e "pak::pak(c('plyr', 'dplyr', 'tidyr', 'reshape2', 'data.table', 'tibble', 'stringr', 'forcats', 'readr', 'haven'), dependencies=TRUE)"
-
-# PHASE 8: Advanced statistics and missing data
-RUN R -e "pak::pak(c('mi', 'mice', 'VIM', 'Hmisc', 'Amelia', 'imputeTS', 'missForest', 'RANN', 'corrplot', 'corpcor'), dependencies=TRUE)"
-
-# PHASE 9: Specialized SEM packages  
-RUN R -e "pak::pak(c('fdrtool', 'huge', 'glasso', 'parcor', 'GeneNet', 'longitudinal', 'ggm', 'pcalg'), dependencies=TRUE)"
-
-# PHASE 10: Web and interactive components
-RUN R -e "pak::pak(c('shiny', 'DT', 'htmltools', 'htmlwidgets', 'jsonlite', 'httpuv', 'mime', 'xtable', 'markdown', 'knitr'), dependencies=TRUE)"
-
-# PHASE 11: Image and document processing
-RUN R -e "pak::pak(c('png', 'jpeg', 'tiff', 'bmp', 'Cairo', 'XML', 'xml2', 'curl', 'httr', 'rvest'), dependencies=TRUE)"
-
-# PHASE 12: Additional graphics packages
-RUN R -e "pak::pak(c('ellipse', 'plotrix', 'gplots', 'latticeExtra', 'vcd', 'hexbin'), dependencies=TRUE)"
-
-# PHASE 13: ARM ecosystem (for semPlot dependencies)
-RUN R -e "pak::pak(c('arm', 'abind', 'coda', 'R2WinBUGS', 'R2jags'), dependencies=TRUE)"
-
-# PHASE 14: The qgraph ecosystem (critical for semPlot)
-RUN R -e "pak::pak(c('qgraph', 'bootnet', 'NetworkComparisonTest', 'psychonetrics', 'graphicalVAR'), dependencies=TRUE)"
-
-# PHASE 15: NUCLEAR OPENMX INSTALLATION - FIXED
-RUN R -e "cat('🚀 NUCLEAR OPENMX INSTALLATION\n'); success <- FALSE"
-
-RUN R -e "if (!success) { tryCatch({ pak::pak('OpenMx', dependencies=TRUE); if (requireNamespace('OpenMx', quietly=TRUE)) { cat('✅ OpenMx via pak SUCCESS\n'); success <- TRUE } }, error = function(e) cat('❌ pak method failed\n')) }" || echo "OpenMx pak failed"
-
-RUN R -e "tryCatch({ install.packages('OpenMx', dependencies=TRUE, type='both'); if (requireNamespace('OpenMx', quietly=TRUE)) { cat('✅ OpenMx via CRAN SUCCESS\n') } }, error = function(e) cat('❌ CRAN method failed\n'))" || echo "OpenMx CRAN failed"
-
-RUN R -e "tryCatch({ install.packages('OpenMx', type='source', dependencies=TRUE); if (requireNamespace('OpenMx', quietly=TRUE)) { cat('✅ OpenMx from source SUCCESS\n') } }, error = function(e) cat('❌ Source method failed\n'))" || echo "OpenMx source failed"
-
-RUN R -e "tryCatch({ remotes::install_github('OpenMx/OpenMx', dependencies=TRUE, force=TRUE); if (requireNamespace('OpenMx', quietly=TRUE)) { cat('✅ OpenMx via GitHub SUCCESS\n') } }, error = function(e) cat('❌ GitHub method failed\n'))" || echo "OpenMx GitHub failed"
-
-# PHASE 16: FINAL BOSS - SEMPLOT INSTALLATION - FIXED
-RUN R -e "cat('🔥 FINAL BOSS: SEMPLOT INSTALLATION\n')"
-
-# Install ALL possible semPlot dependencies first
-RUN R -e "all_deps <- c('OpenMx', 'lavaan', 'psych', 'qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'colorspace', 'corpcor', 'mi', 'Amelia', 'foreign', 'huge', 'rockchalk', 'arm', 'abind', 'mnormt', 'pbivnorm', 'sem', 'ellipse', 'igraph', 'Matrix', 'MASS', 'boot', 'methods', 'stats', 'grDevices', 'graphics', 'utils'); for (dep in all_deps) { tryCatch({ if (!requireNamespace(dep, quietly=TRUE)) { pak::pak(dep); cat('✅ Installed:', dep, '\n') } else { cat('✓ Already have:', dep, '\n') } }, error = function(e) { cat('⚠️ Could not install:', dep, '\n') }) }"
-
-# Now try semPlot installation with multiple methods
-RUN R -e "tryCatch({ pak::pak('semPlot', dependencies=TRUE); if (requireNamespace('semPlot', quietly=TRUE)) { cat('🏆 semPlot via pak SUCCESS!\n') } }, error = function(e) cat('❌ pak method failed\n'))" || echo "semPlot pak failed"
-
-RUN R -e "tryCatch({ install.packages('semPlot', dependencies=TRUE, type='both'); if (requireNamespace('semPlot', quietly=TRUE)) { cat('🏆 semPlot via CRAN SUCCESS!\n') } }, error = function(e) cat('❌ CRAN method failed\n'))" || echo "semPlot CRAN failed"
-
-RUN R -e "tryCatch({ remotes::install_github('SachaEpskamp/semPlot', dependencies=TRUE, force=TRUE); if (requireNamespace('semPlot', quietly=TRUE)) { cat('🏆 semPlot via GitHub SUCCESS!\n') } }, error = function(e) cat('❌ GitHub method failed\n'))" || echo "semPlot GitHub failed"
-
-# PHASE 17: COMPREHENSIVE VERIFICATION - FIXED
-RUN R -e "cat('\n\n🔍 COMPREHENSIVE PACKAGE VERIFICATION\n'); cat('=====================================\n'); critical_packages <- c('shiny', 'lavaan', 'psych', 'ggplot2', 'MASS'); holy_grail <- c('OpenMx', 'semPlot', 'qgraph'); support_packages <- c('DT', 'devtools', 'Matrix', 'mvtnorm'); all_critical_good <- TRUE; holy_grail_count <- 0; cat('\n📦 CRITICAL PACKAGES:\n'); for (pkg in critical_packages) { if (requireNamespace(pkg, quietly=TRUE)) { cat('✅', pkg, 'verified\n') } else { cat('❌ CRITICAL FAILURE:', pkg, 'missing\n'); all_critical_good <- FALSE } }; cat('\n🏆 HOLY GRAIL PACKAGES:\n'); for (pkg in holy_grail) { if (requireNamespace(pkg, quietly=TRUE)) { cat('🏆', pkg, 'SUCCESS!\n'); holy_grail_count <- holy_grail_count + 1 } else { cat('💔', pkg, 'FAILED\n') } }; cat('\n🛠️ SUPPORT PACKAGES:\n'); for (pkg in support_packages) { if (requireNamespace(pkg, quietly=TRUE)) { cat('✅', pkg, 'verified\n') } else { cat('⚠️', pkg, 'missing\n') } }; cat('\n📊 FINAL SUMMARY:\n'); cat('==================\n'); cat('Critical packages:', ifelse(all_critical_good, '✅ ALL GOOD', '❌ FAILURES'), '\n'); cat('Holy grail score:', holy_grail_count, '/', length(holy_grail), '\n'); cat('semPlot available:', ifelse(requireNamespace('semPlot', quietly=TRUE), '🏆 YES!', '💔 NO'), '\n'); cat('OpenMx available:', ifelse(requireNamespace('OpenMx', quietly=TRUE), '🏆 YES!', '💔 NO'), '\n'); if (!all_critical_good) { stop('CRITICAL PACKAGE FAILURES - BUILD ABORTED') }; cat('\n🎯 BUILD VERIFICATION COMPLETE - READY FOR DEPLOYMENT! 🎯\n')"
-
-# Create optimized runtime image
-FROM --platform=linux/amd64 ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PORT=5000
-
-# Runtime dependencies - COMPLETE SET
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # R runtime essentials
-    libblas3 \
-    liblapack3 \
-    libopenblas0-pthread \
-    libgfortran5 \
-    libgomp1 \
-    # Graphics runtime
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libfontconfig1 \
-    libfreetype6 \
-    libpng16-16 \
-    libjpeg-turbo8 \
-    libtiff5 \
-    # System essentials
-    libssl3 \
-    libcurl4 \
-    libxml2 \
-    curl \
-    ca-certificates \
-    locales \
-    # X11 runtime (might be needed)
-    libx11-6 \
-    libxt6 \
-    && rm -rf /var/lib/apt/lists/* \
-    && locale-gen en_US.UTF-8
-
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+# Configure repos
+RUN echo 'options(repos=c(CRAN="https://packagemanager.posit.co/cran/latest"))' \
+    >> /usr/local/lib/R/etc/Rprofile.site
 
 WORKDIR /app
 
-# Copy the entire R installation
-COPY --from=builder /usr/local /usr/local
+# Core packages
+RUN Rscript -e "install.packages(c('shiny', 'MASS', 'lavaan', 'psych', 'nloptr', 'lme4'), Ncpus=parallel::detectCores())"
 
-# Copy application files
+# OpenMx dependencies first
+RUN Rscript -e "install.packages(c('Matrix', 'digest', 'boot', 'lattice', 'nlme', 'survival', 'car', 'pbivnorm', 'BH', 'RcppEigen', 'Rcpp', 'lifecycle'), Ncpus=parallel::detectCores())"
+
+# FORCE OpenMx (now should work with R 4.5.0!)
+RUN Rscript -e "install.packages('OpenMx', Ncpus=2, type='source')" || echo "OpenMx failed, trying alternatives..." && \
+    Rscript -e "install.packages('OpenMx', repos='http://openmx.ssri.psu.edu/packages/')" || \
+    echo "OpenMx installation failed but continuing..."
+
+# semPlot dependencies
+RUN Rscript -e "install.packages(c('qgraph', 'plyr', 'XML', 'png', 'fdrtool', 'colorspace', 'corpcor', 'mi', 'Amelia', 'foreign', 'huge', 'rockchalk', 'arm', 'abind', 'mnormt', 'pbivnorm', 'sem'), Ncpus=parallel::detectCores())"
+
+# semTools
+RUN Rscript -e "install.packages('semTools', Ncpus=parallel::detectCores())"
+
+# THE MOMENT OF TRUTH - semPlot (should work now!)
+RUN Rscript -e "install.packages('semPlot', Ncpus=2, dependencies=TRUE)" || \
+    echo "semPlot failed but app will work without it"
+
+# Other packages
+RUN Rscript -e "install.packages(c('DT', 'ggplot2', 'tibble', 'viridis', 'Hmisc'), Ncpus=parallel::detectCores())"
+
+# Verification
+RUN Rscript -e "critical <- c('shiny', 'lavaan', 'psych', 'lme4'); holy_grail <- c('OpenMx', 'semPlot'); for (pkg in critical) { if (!requireNamespace(pkg, quietly = TRUE)) { stop(paste('CRITICAL:', pkg, 'missing')) } else { cat('✅ CRITICAL:', pkg, 'verified\n') } }; for (pkg in holy_grail) { if (requireNamespace(pkg, quietly = TRUE)) { cat('🏆 HOLY GRAIL:', pkg, 'SUCCESS!\n') } else { cat('💔 FAILED:', pkg, 'missing\n') } }; cat('🎯 Verification complete\n')"
+
+# Runtime image - FIXED package names for Ubuntu 24.04
+FROM --platform=linux/amd64 rocker/shiny:4.5.0
+
+ENV PORT=5000
+ENV DEBIAN_FRONTEND=noninteractive
+
+# CORRECTED: Ubuntu 24.04 package names
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libblas3 \
+    liblapack3 \
+    libopenblas0 \
+    libgfortran5 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the arsenal
+COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
+
+# Copy app files
 COPY app_customizable.R .
 COPY app_simple.R .
 COPY generate_data.R .
 
-# ULTIMATE startup script with comprehensive checks - FIXED
+# Startup script
 RUN echo '#!/bin/bash\n\
-echo "🚀 STARTING NUCLEAR SEMPLOT SHINY APPLICATION"\n\
-echo "============================================"\n\
-\n\
-echo "🔍 System verification..."\n\
-R --version || (echo "❌ R not found" && exit 1)\n\
-\n\
-echo "📦 Package verification..."\n\
-R -e "\n\
-    critical <- c(\"shiny\", \"lavaan\", \"psych\", \"ggplot2\")\n\
-    holy_grail <- c(\"OpenMx\", \"semPlot\", \"qgraph\")\n\
-    \n\
-    cat(\"\\n🔍 STARTUP VERIFICATION:\\n\")\n\
-    \n\
-    all_good <- TRUE\n\
-    for (pkg in critical) {\n\
-        if (requireNamespace(pkg, quietly=TRUE)) {\n\
-            cat(\"✅ CRITICAL:\", pkg, \"ready\\n\")\n\
-        } else {\n\
-            cat(\"❌ CRITICAL MISSING:\", pkg, \"\\n\")\n\
-            all_good <- FALSE\n\
-        }\n\
-    }\n\
-    \n\
-    hg_count <- 0\n\
-    for (pkg in holy_grail) {\n\
-        if (requireNamespace(pkg, quietly=TRUE)) {\n\
-            cat(\"🏆 HOLY GRAIL:\", pkg, \"available!\\n\")\n\
-            hg_count <- hg_count + 1\n\
-        } else {\n\
-            cat(\"💔 Missing:\", pkg, \"\\n\")\n\
-        }\n\
-    }\n\
-    \n\
-    if (!all_good) {\n\
-        stop(\"Critical packages missing - cannot start\")\n\
-    }\n\
-    \n\
-    cat(\"\\n📊 STARTUP SUMMARY:\\n\")\n\
-    cat(\"Critical packages: ALL READY ✅\\n\")\n\
-    cat(\"Holy grail packages:\", hg_count, \"/\", length(holy_grail), \"\\n\")\n\
-    \n\
-    if (requireNamespace(\"semPlot\", quietly=TRUE)) {\n\
-        cat(\"\\n🎯🎯🎯 SEMPLOT IS READY TO ROCK! 🎯🎯🎯\\n\")\n\
-    } else {\n\
-        cat(\"\\n⚠️ semPlot not available, using fallback visualization\\n\")\n\
-    }\n\
-" || exit 1\n\
-\n\
-echo ""\n\
-echo "🎯 Starting Shiny application..."\n\
-echo "Access at: http://localhost:$PORT"\n\
-echo ""\n\
-\n\
+echo "🚀 Starting SEM Data Generator with R 4.5.0 + semPlot attempt!"\n\
 exec R -e "shiny::runApp(\"app_customizable.R\", host=\"0.0.0.0\", port=as.numeric(Sys.getenv(\"PORT\", 5000)))"' > start.sh && \
     chmod +x start.sh
 
-# Comprehensive health check
-HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:$PORT/ || exit 1
 
 EXPOSE 5000
-
-# Final message
-RUN echo "🎯 NUCLEAR SEMPLOT DOCKERFILE COMPLETE - THIS WILL WORK! 🎯"
-
 CMD ["./start.sh"]
