@@ -24,27 +24,24 @@ library(ggplot2)
 library(plotly)
 library(viridis)
 
-# Global profile storage
-profiles <- reactiveValues(
-  current = 1,
-  data = list(
-    "Profile #1 - Educational SEM (Default)" = list(
-      scales = list(
-        TSRI = list(name = "Teacher-Student Relationship", factors = c("Satisfaction", "Instrumental", "Conflict"), items = 14, range = c(1,5)),
-        UWES = list(name = "Work Engagement", factors = c("Vigor", "Dedication", "Absorption"), items = 17, range = c(0,6)),
-        EST = list(name = "Empathy Scale for Teachers", factors = c("Cognitive", "Negative", "Positive"), items = 19, range = c(1,4)),
-        TAS = list(name = "Teacher Altruism Scale", factors = c("Donation", "Emergency", "Everyday", "Social"), items = 18, range = c(1,5))
-      ),
-      model_structure = list(
-        predictors = c("EST_Cognitive", "EST_Positive", "TAS_Donation"),
-        mediators = c("TSRI_Satisfaction", "UWES_Vigor"),
-        outcomes = c("UWES_Dedication", "UWES_Absorption")
-      ),
-      factor_correlations = list(
-        empathy_altruism = 0.45,
-        tsr_engagement = 0.65,
-        empathy_engagement = 0.35
-      )
+# Global profile storage - initialize as regular list first
+default_profiles <- list(
+  "Profile #1 - Educational SEM (Default)" = list(
+    scales = list(
+      TSRI = list(name = "Teacher-Student Relationship", factors = c("Satisfaction", "Instrumental", "Conflict"), items = 14, range = c(1,5)),
+      UWES = list(name = "Work Engagement", factors = c("Vigor", "Dedication", "Absorption"), items = 17, range = c(0,6)),
+      EST = list(name = "Empathy Scale for Teachers", factors = c("Cognitive", "Negative", "Positive"), items = 19, range = c(1,4)),
+      TAS = list(name = "Teacher Altruism Scale", factors = c("Donation", "Emergency", "Everyday", "Social"), items = 18, range = c(1,5))
+    ),
+    model_structure = list(
+      predictors = c("EST_Cognitive", "EST_Positive", "TAS_Donation"),
+      mediators = c("TSRI_Satisfaction", "UWES_Vigor"),
+      outcomes = c("UWES_Dedication", "UWES_Absorption")
+    ),
+    factor_correlations = list(
+      empathy_altruism = 0.45,
+      tsr_engagement = 0.65,
+      empathy_engagement = 0.35
     )
   )
 )
@@ -358,8 +355,8 @@ ui <- dashboardPage(
               column(6,
                 h4("Current Profile"),
                 selectInput("active_profile", "Select Profile:",
-                           choices = names(profiles$data),
-                           selected = names(profiles$data)[1]),
+                           choices = names(default_profiles),
+                           selected = names(default_profiles)[1]),
                 br(),
                 h5("Profile Settings"),
                 textInput("profile_name", "Profile Name:", value = "Profile #1 - Educational SEM (Default)"),
@@ -503,16 +500,24 @@ ui <- dashboardPage(
 # Server Definition
 server <- function(input, output, session) {
   
+  # Initialize profiles as reactiveValues in server
+  profiles <- reactiveValues(
+    current = 1,
+    data = default_profiles
+  )
+  
   # Reactive values
   values <- reactiveValues(
     generated_data = NULL,
     sem_results = NULL,
-    current_profile = profiles$data[[1]]
+    current_profile = default_profiles[[1]]
   )
   
   # Profile management
   observeEvent(input$active_profile, {
-    values$current_profile <- profiles$data[[input$active_profile]]
+    if (input$active_profile %in% names(profiles$data)) {
+      values$current_profile <- profiles$data[[input$active_profile]]
+    }
   })
   
   # Data generation
