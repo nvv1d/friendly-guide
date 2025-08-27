@@ -87,6 +87,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack3 \
     libopenblas0 \
     libgfortran5 \
+    libnlopt0 \
+    libglpk40 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
