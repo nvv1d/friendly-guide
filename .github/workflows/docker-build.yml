@@ -37,8 +37,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator:latest
-          ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator:${{ github.sha }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator2:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator2:${{ github.sha }}
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -47,5 +47,5 @@ jobs:
     - name: 📋 Image Details
       run: |
         echo "✅ Image built and pushed successfully!"
-        echo "🐳 Image: ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator:latest"
+        echo "🐳 Image: ${{ secrets.DOCKER_HUB_USERNAME }}/sem-data-generator2:latest"
         echo "🔗 Deploy on Koyeb using this image URL"
